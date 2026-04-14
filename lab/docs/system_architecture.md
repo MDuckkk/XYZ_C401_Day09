@@ -1,7 +1,7 @@
 # System Architecture — Lab Day 09
 
-**Nhóm:** ___________  
-**Ngày:** ___________  
+**Nhóm:** XYZ  
+**Ngày:** 24/04/2026  
 **Version:** 1.0
 
 ---
@@ -13,7 +13,11 @@
 **Pattern đã chọn:** Supervisor-Worker  
 **Lý do chọn pattern này (thay vì single agent):**
 
-_________________
+- Tách biệt trách nhiệm: Supervisor chỉ routing, workers xử lý domain logic
+- Dễ debug: Test từng worker độc lập, trace rõ ràng qua history log
+- Mở rộng dễ: Thêm worker mới không ảnh hưởng code cũ
+- HITL support: Supervisor có thể pause cho human review khi risk_high=True
+- MCP integration: Policy worker gọi external tools qua MCP protocol
 
 ---
 
