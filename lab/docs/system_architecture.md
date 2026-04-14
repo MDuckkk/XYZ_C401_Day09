@@ -1,7 +1,7 @@
 # System Architecture — Lab Day 09
 
 **Nhóm:** XYZ  
-**Ngày:** 24/04/2026  
+**Ngày:** 14/04/2026  
 **Version:** 1.0
 
 ---
@@ -94,10 +94,10 @@ Supervisor-Worker cho phép tách biệt logic routing (supervisor) khỏi logic
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **LLM model** | OpenAI (model cấu hình trong code, sử dụng `max_completion_tokens`) |
-| **Temperature** | Mặc định (1.0) — model o-series không hỗ trợ custom temperature |
+| **LLM model** | OpenAI `gpt-4o-mini` |
+| **Temperature** | 0.1 — thấp để đảm bảo câu trả lời grounded, ít sáng tạo |
 | **Grounding strategy** | Chỉ trả lời dựa trên retrieved chunks; cite nguồn cụ thể; LLM-Judge đánh giá faithfulness, relevance, completeness |
-| **Abstain condition** | Khi không có chunks liên quan hoặc confidence score < ngưỡng; LLM-Judge cho điểm thấp → confidence giảm |
+| **Abstain condition** | Khi không có chunks liên quan hoặc confidence score thấp; LLM-Judge cho điểm thấp → confidence giảm |
 
 ### MCP Server (`mcp_server.py`)
 
@@ -105,7 +105,8 @@ Supervisor-Worker cho phép tách biệt logic routing (supervisor) khỏi logic
 |------|-------|--------|
 | `search_kb` | `query: str`, `top_k: int` | `chunks: list`, `sources: list` |
 | `get_ticket_info` | `ticket_id: str` | Ticket details (priority, status, SLA) |
-| `check_access_permission` | `access_level: str`, `requester_role: str` | `can_grant: bool`, `approvers: list` |
+| `check_access_permission` | `access_level: int`, `requester_role: str` | `can_grant: bool`, `approvers: list` |
+| `create_ticket` | `priority: str`, `title: str`, `description: str` | `ticket_id: str`, `url: str` |
 
 ---
 
@@ -145,27 +146,27 @@ Supervisor-Worker cho phép tách biệt logic routing (supervisor) khỏi logic
 | Routing visibility | Không có — mọi câu đều đi cùng một luồng | Có `route_reason` trong trace, biết tại sao chọn worker nào |
 | Xử lý policy phức tạp | Dồn hết vào 1 prompt, dễ hallucinate | Policy tool worker riêng + MCP tools chuyên biệt |
 | HITL (Human-in-the-loop) | Không hỗ trợ | Có `human_review` node, trigger khi `risk_high=True` |
-| Latency | Nhanh hơn (~2.2s/câu) | Chậm hơn (~14.3s/câu) do nhiều bước + LLM-Judge |
+| Latency | Nhanh hơn (~2.2s/câu) | Chậm hơn (~12.7s/câu) do nhiều bước + LLM-Judge |
 | Confidence scoring | Không có hoặc đơn giản | LLM-Judge đánh giá faithfulness, relevance, completeness |
 | Trace & observability | Minimal | Full trace JSON cho mỗi run, có worker_io_logs |
 
 **Quan sát từ thực tế lab:**
 
-- Avg confidence Day 09: **0.862** trên 15 câu grading, cho thấy hệ thống trả lời grounded tốt.
-- Routing distribution: 76% retrieval, 23% policy_tool — supervisor phân luồng hợp lý theo nội dung câu hỏi.
-- Top sources sử dụng nhiều nhất: `it/access-control-sop.md` (11 lần), `support/sla-p1-2026.pdf` (9 lần) — phù hợp với bộ câu hỏi.
-- HITL chỉ trigger 1/30 lần (3%) — đúng với thiết kế chỉ dùng cho trường hợp mã lỗi không xác định.
+- Avg confidence Day 09: **0.863** trên 15 câu test questions, cho thấy hệ thống trả lời grounded tốt.
+- Routing distribution: 53% retrieval (8/15), 47% policy_tool (7/15) — supervisor phân luồng hợp lý theo nội dung câu hỏi.
+- Top sources sử dụng nhiều nhất: `support/sla-p1-2026.pdf` (4 lần), `it/access-control-sop.md` (4 lần) — phù hợp với bộ câu hỏi.
+- HITL chỉ trigger 1/15 lần (6.7%) — đúng với thiết kế chỉ dùng cho trường hợp mã lỗi không xác định.
 
 ---
 
 ## 6. Giới hạn và điểm cần cải tiến
 
-1. **Latency cao (~14s/câu):** Pipeline qua nhiều bước (supervisor → worker → synthesis → LLM-Judge), mỗi bước gọi OpenAI API. Cải tiến: batch embedding, cache kết quả, hoặc dùng model nhẹ hơn cho judge.
+1. **Latency cao (~12.7s/câu):** Pipeline qua nhiều bước (supervisor → worker → synthesis → LLM-Judge), mỗi bước gọi OpenAI API. Cải tiến: batch embedding, cache kết quả, hoặc dùng model nhẹ hơn cho judge.
 
-2. **Routing dựa trên keyword matching đơn giản:** Supervisor hiện tại dùng keyword matching cứng, dễ miss các câu hỏi không chứa keyword mong đợi. Cải tiến: dùng LLM classifier hoặc intent detection model cho routing.
+2. **Routing dựa trên keyword matching đơn giản:** Supervisor hiện tại dùng keyword matching cứng, dễ miss các câu hỏi không chứa keyword mong đợi. Ví dụ thực tế: câu "Ai phải phê duyệt để cấp quyền Level 3?" bị route sang `retrieval_worker` thay vì `policy_tool_worker` vì thiếu keyword "cấp quyền" trong câu. Cải tiến: dùng LLM classifier hoặc intent detection model cho routing.
 
 3. **Chưa hỗ trợ multi-hop reasoning thực sự:** Khi câu hỏi cần thông tin từ nhiều tài liệu (ví dụ: SLA + access control), pipeline chỉ query một lần với top-k=3. Cải tiến: thêm re-ranking step hoặc iterative retrieval khi confidence thấp.
 
 4. **HITL chỉ là placeholder (auto-approve):** Human review node chỉ in warning rồi tự approve, chưa có cơ chế dừng pipeline thực sự chờ human input. Cải tiến: tích hợp với messaging system hoặc UI để human review thật.
 
-5. **Embedding model mismatch tiềm ẩn:** Nếu retrieval.py fallback sang sentence-transformers (384 dims) thay vì OpenAI (1536 dims), kết quả sẽ sai. Cải tiến: enforce cùng một embedding model ở cả index và query, có validation check khi khởi tạo.
+5. **`retrieved_sources` không được populate khi đi qua policy_tool_worker:** Khi pipeline route sang `policy_tool_worker`, MCP tool `search_kb` trả về chunks nhưng không ghi vào `retrieved_sources` trong state — dẫn đến field này rỗng trong grading_run.jsonl. Cải tiến: đồng bộ `retrieved_sources` từ MCP output vào state.
