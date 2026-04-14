@@ -1,0 +1,19 @@
+{
+  "run_id": "run_20260414_173956",
+  "task": "Quy trình xử lý sự cố P1 gồm mấy bước và bước đầu tiên là gì?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "task contains SLA or ticket keyword",
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "support/sla-p1-2026.pdf"
+  ],
+  "final_answer": "Quy trình xử lý sự cố P1 gồm 5 bước. Bước đầu tiên là \"Tiếp nhận\", trong đó on-call engineer nhận alert hoặc ticket và xác nhận severity trong 5 phút [1].",
+  "confidence": 0.9,
+  "hitl_triggered": false,
+  "latency_ms": 6689,
+  "timestamp": "2026-04-14T17:40:03"
+}

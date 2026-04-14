@@ -1,0 +1,76 @@
+{
+  "run_id": "run_20260414_174009",
+  "task": "Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+  "supervisor_route": "policy_tool_worker",
+  "route_reason": "task contains policy or access control keyword",
+  "workers_called": [
+    "policy_tool_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [
+    {
+      "tool": "search_kb",
+      "input": {
+        "query": "Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+        "top_k": 3
+      },
+      "output": {
+        "chunks": [
+          {
+            "text": "- Hoàn tiền qua phương thức thanh toán gốc: áp dụng trong 100% trường hợp đủ điều kiện.\n- Hoàn tiền qua credit nội bộ (store credit): khách hàng có thể chọn nhận store credit thay thế với giá trị 110% so với số tiền hoàn.",
+            "source": "policy/refund-v4.pdf",
+            "score": 0.6564,
+            "metadata": {
+              "chunk_index": 4,
+              "source": "policy/refund-v4.pdf",
+              "section": "Điều 5: Hình thức hoàn tiền",
+              "chunk_chars": 221,
+              "access": "internal",
+              "department": "CS",
+              "effective_date": "2026-02-01"
+            }
+          },
+          {
+            "text": "Hoàn tiền — Điều kiện áp dụng:\nYêu cầu được gửi trong vòng 7 ngày kể từ thời điểm xác nhận đơn hàng.\n\nNgoại lệ không được hoàn tiền:\n- Sản phẩm thuộc danh mục hàng kỹ thuật số (license key, subscription).\n- Đơn hàng đã áp dụng mã giảm giá đặc biệt theo chương trình khuyến mãi Flash Sale.\n- Sản phẩm đã được kích hoạt hoặc đăng ký tài khoản.",
+            "source": "policy/refund-v4.pdf",
+            "score": 0.4356,
+            "metadata": {
+              "department": "CS",
+              "section": "Điều 3: Điều kiện áp dụng và ngoại lệ",
+              "chunk_chars": 341,
+              "source": "policy/refund-v4.pdf",
+              "access": "internal",
+              "chunk_index": 2,
+              "effective_date": "2026-02-01"
+            }
+          },
+          {
+            "text": "Chính sách này áp dụng cho tất cả các đơn hàng được đặt trên hệ thống nội bộ kể từ ngày 01/02/2026.\nCác đơn hàng đặt trước ngày có hiệu lực sẽ áp dụng theo chính sách hoàn tiền phiên bản 3.",
+            "source": "policy/refund-v4.pdf",
+            "score": 0.3874,
+            "metadata": {
+              "access": "internal",
+              "chunk_index": 0,
+              "source": "policy/refund-v4.pdf",
+              "department": "CS",
+              "section": "Điều 1: Phạm vi áp dụng",
+              "effective_date": "2026-02-01",
+              "chunk_chars": 189
+            }
+          }
+        ],
+        "sources": [
+          "policy/refund-v4.pdf"
+        ],
+        "total_found": 3
+      },
+      "timestamp": "2026-04-14T17:40:10.295041"
+    }
+  ],
+  "retrieved_sources": [],
+  "final_answer": "Store credit khi hoàn tiền có giá trị 110% so với số tiền gốc. Khách hàng có thể chọn nhận store credit thay thế trong trường hợp đủ điều kiện hoàn tiền [1].",
+  "confidence": 0.95,
+  "hitl_triggered": false,
+  "latency_ms": 13801,
+  "timestamp": "2026-04-14T17:40:23"
+}

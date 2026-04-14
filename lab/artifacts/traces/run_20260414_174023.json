@@ -1,0 +1,19 @@
+{
+  "run_id": "run_20260414_174023",
+  "task": "Ticket P1 được tạo lúc 22:47. Ai sẽ nhận thông báo đầu tiên và qua kênh nào? Escalation xảy ra lúc mấy giờ?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "task contains SLA or ticket keyword",
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "support/sla-p1-2026.pdf"
+  ],
+  "final_answer": "1. Người nhận thông báo đầu tiên là on-call engineer qua kênh Slack #incident-p1 và email incident@company.internal ngay lập tức sau khi ticket được tạo lúc 22:47 [1].\n\n2. Escalation sẽ xảy ra tự động sau 10 phút nếu không có phản hồi, tức là vào lúc 22:57 [2].",
+  "confidence": 0.95,
+  "hitl_triggered": false,
+  "latency_ms": 7491,
+  "timestamp": "2026-04-14T17:40:30"
+}

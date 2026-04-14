@@ -1,0 +1,19 @@
+{
+  "run_id": "run_20260414_173940",
+  "task": "Ticket P1 không được phản hồi sau 10 phút. Hệ thống tự động làm gì?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "task contains SLA or ticket keyword",
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "support/sla-p1-2026.pdf"
+  ],
+  "final_answer": "Nếu ticket P1 không được phản hồi sau 10 phút, hệ thống sẽ tự động escalate lên Senior Engineer. [1]",
+  "confidence": 0.9,
+  "hitl_triggered": false,
+  "latency_ms": 5549,
+  "timestamp": "2026-04-14T17:39:46"
+}

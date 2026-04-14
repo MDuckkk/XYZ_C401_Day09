@@ -84,7 +84,8 @@ def supervisor_node(state: AgentState) -> AgentState:
     1. Route sang worker nào
     2. Có cần MCP tool không
     3. Có risk cao cần HITL không
-    TODO Sprint 1: Implement routing logic dựa vào task keywords.
+
+    TODO Sprint 1: Implement routing logic dựa vào task keywords.
     """
     task = state["task"].lower()
     state["history"].append(f"[supervisor] received task: {state['task'][:80]}")
@@ -271,11 +272,37 @@ def run_graph(task: str) -> AgentState:
 
 
 def save_trace(state: AgentState, output_dir: str = "./artifacts/traces") -> str:
-    """Lưu trace ra file JSON."""
+    """Lưu trace ra file JSON theo format bắt buộc (12 fields)."""
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{output_dir}/{state['run_id']}.json"
+
+    # Format MCP tools: chỉ giữ tool, input, output, timestamp
+    mcp_tools = []
+    for t in state.get("mcp_tools_used", []):
+        mcp_tools.append({
+            "tool": t.get("tool", ""),
+            "input": t.get("input", {}),
+            "output": t.get("output", {}),
+            "timestamp": t.get("timestamp", ""),
+        })
+
+    trace = {
+        "run_id": state.get("run_id", ""),
+        "task": state.get("task", ""),
+        "supervisor_route": state.get("supervisor_route", ""),
+        "route_reason": state.get("route_reason", ""),
+        "workers_called": state.get("workers_called", []),
+        "mcp_tools_used": mcp_tools,
+        "retrieved_sources": state.get("retrieved_sources", []),
+        "final_answer": state.get("final_answer", ""),
+        "confidence": state.get("confidence", 0.0),
+        "hitl_triggered": state.get("hitl_triggered", False),
+        "latency_ms": state.get("latency_ms", 0),
+        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+
     with open(filename, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+        json.dump(trace, f, ensure_ascii=False, indent=2)
     return filename
 
 

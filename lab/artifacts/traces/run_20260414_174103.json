@@ -1,0 +1,20 @@
+{
+  "run_id": "run_20260414_174103",
+  "task": "Nhân viên vừa vào thử việc (trong probation period) muốn làm remote vì lý do cá nhân. Điều kiện là gì?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "default route",
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "hr/leave-policy-2026.pdf",
+    "it/access-control-sop.md"
+  ],
+  "final_answer": "Nhân viên trong probation period không đủ điều kiện để làm remote. Theo quy định, chỉ nhân viên sau probation period mới có thể làm remote tối đa 2 ngày/tuần và cần sự phê duyệt của Team Lead qua HR Portal [1].",
+  "confidence": 0.95,
+  "hitl_triggered": false,
+  "latency_ms": 7239,
+  "timestamp": "2026-04-14T17:41:10"
+}

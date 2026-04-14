@@ -1,0 +1,21 @@
+{
+  "run_id": "run_20260414_174003",
+  "task": "ERR-403-AUTH là lỗi gì và cách xử lý?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "task contains unknown error code or unclear context | human approved → retrieval",
+  "workers_called": [
+    "human_review",
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "support/helpdesk-faq.md",
+    "it/access-control-sop.md"
+  ],
+  "final_answer": "Không đủ thông tin trong tài liệu nội bộ để xác định lỗi ERR-403-AUTH và cách xử lý.",
+  "confidence": 0.1,
+  "hitl_triggered": true,
+  "latency_ms": 5775,
+  "timestamp": "2026-04-14T17:40:09"
+}

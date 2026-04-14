@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-14T17:03:15.350887",
+  "generated_at": "2026-04-14T17:41:54.686155",
   "day08_single_agent": {
     "total_questions": 10,
     "avg_confidence": 0.92,
@@ -8,31 +8,31 @@
     "multi_hop_accuracy": "5/6"
   },
   "day09_multi_agent": {
-    "total_traces": 66,
+    "total_traces": 15,
     "routing_distribution": {
-      "retrieval_worker": "34/66 (51%)",
-      "policy_tool_worker": "32/66 (48%)"
+      "retrieval_worker": "8/15 (53%)",
+      "policy_tool_worker": "7/15 (46%)"
     },
-    "avg_confidence": 0.867,
-    "avg_latency_ms": 14278,
-    "mcp_usage_rate": "32/66 (48%)",
-    "hitl_rate": "4/66 (6%)",
+    "avg_confidence": 0.863,
+    "avg_latency_ms": 12722,
+    "mcp_usage_rate": "7/15 (46%)",
+    "hitl_rate": "1/15 (6%)",
     "top_sources": [
       [
         "support/sla-p1-2026.pdf",
-        18
+        4
       ],
       [
         "it/access-control-sop.md",
-        16
+        4
       ],
       [
         "support/helpdesk-faq.md",
-        8
+        2
       ],
       [
         "hr/leave-policy-2026.pdf",
-        8
+        2
       ]
     ]
   },

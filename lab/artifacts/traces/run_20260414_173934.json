@@ -1,0 +1,20 @@
+{
+  "run_id": "run_20260414_173934",
+  "task": "Nhân viên được làm remote tối đa mấy ngày mỗi tuần?",
+  "supervisor_route": "retrieval_worker",
+  "route_reason": "default route",
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "mcp_tools_used": [],
+  "retrieved_sources": [
+    "hr/leave-policy-2026.pdf",
+    "it/access-control-sop.md"
+  ],
+  "final_answer": "Nhân viên được làm remote tối đa 2 ngày mỗi tuần sau khi hoàn thành probation period. Lịch remote cần được Team Lead phê duyệt qua HR Portal. Ngày onsite bắt buộc là Thứ 3 và Thứ 5 theo lịch team [1].",
+  "confidence": 0.95,
+  "hitl_triggered": false,
+  "latency_ms": 5959,
+  "timestamp": "2026-04-14T17:39:40"
+}
