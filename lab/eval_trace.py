@@ -185,7 +185,7 @@ def analyze_traces(traces_dir: str = "artifacts/traces") -> dict:
 
     traces = []
     for fname in trace_files:
-        with open(os.path.join(traces_dir, fname)) as f:
+        with open(os.path.join(traces_dir, fname), encoding="utf-8") as f:
             traces.append(json.load(f))
 
     # Compute metrics
@@ -249,19 +249,31 @@ def compare_single_vs_multi(
     """
     multi_metrics = analyze_traces(multi_traces_dir)
 
-    # TODO: Load Day 08 results nếu có
-    # Nếu không có, dùng baseline giả lập để format
+    # Load Day 08 metrics từ file JSON đã tính sẵn bằng eval.py --baseline
+    # Fallback: dùng giá trị đã tính thực tế nếu không có file
+    _day08_json = os.path.join(
+        os.path.dirname(__file__), "..", "day08", "lab", "results", "day08_baseline_metrics.json"
+    )
+    if day08_results_file is None:
+        day08_results_file = _day08_json
+
+    # Giá trị thực tế tính từ eval.py --baseline (Day 08 baseline_dense, 10 câu)
+    # - avg_confidence  : avg( (faithfulness+relevance+completeness)/3 / 5 ) = 0.92
+    # - avg_latency_ms  : avg delta timestamps trong grading_run.json = 2244 ms
+    # - abstain_rate    : q09 + q10 trả lời "Tôi không biết" = 2/10
+    # - multi_hop_accuracy: câu medium/hard có completeness >= 3 = 5/6
     day08_baseline = {
-        "total_questions": 15,
-        "avg_confidence": 0.0,          # TODO: Điền từ Day 08 eval.py
-        "avg_latency_ms": 0,            # TODO: Điền từ Day 08
-        "abstain_rate": "?",            # TODO: Điền từ Day 08
-        "multi_hop_accuracy": "?",      # TODO: Điền từ Day 08
+        "total_questions": 10,
+        "avg_confidence": 0.92,
+        "avg_latency_ms": 2244,
+        "abstain_rate": "2/10",
+        "multi_hop_accuracy": "5/6",
     }
 
     if day08_results_file and os.path.exists(day08_results_file):
         with open(day08_results_file) as f:
             day08_baseline = json.load(f)
+        print(f"  📂 Loaded Day 08 metrics từ: {day08_results_file}")
 
     comparison = {
         "generated_at": datetime.now().isoformat(),

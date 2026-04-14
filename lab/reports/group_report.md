@@ -1,16 +1,14 @@
 # Báo Cáo Nhóm — Lab Day 09: Multi-Agent Orchestration
 
-**Tên nhóm:** ___________  
+**Tên nhóm:** XYZ  
 **Thành viên:**
 | Tên | Vai trò | Email |
 |-----|---------|-------|
-| ___ | Supervisor Owner | ___ |
-| ___ | Worker Owner | ___ |
-| ___ | MCP Owner | ___ |
-| ___ | Trace & Docs Owner | ___ |
+| Bùi Minh Đức | Supervisor Owner, MCP Owner, Trace & Docs Owner | bmd040510@gmail.com |
+| Trần Thanh Nguyên | Worker Owner, Trace & Docs Owner | ttnguyen1410@gmail.com |
 
-**Ngày nộp:** ___________  
-**Repo:** ___________  
+**Ngày nộp:** 24/04/2026  
+**Repo:** https://github.com/MDuckkk/XYZ_C401_Day09.git  
 **Độ dài khuyến nghị:** 600–1000 từ
 
 ---
