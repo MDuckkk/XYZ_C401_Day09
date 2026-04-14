@@ -38,29 +38,33 @@ def _call_llm(messages: list) -> str:
     TODO Sprint 2: Implement với OpenAI hoặc Gemini.
     """
     # Option A: OpenAI
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0.1,  # Low temperature để grounded
-            max_tokens=500,
-        )
-        return response.choices[0].message.content
-    except Exception:
-        pass
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=10)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                temperature=0.1,  # Low temperature để grounded
+                max_tokens=500,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"OpenAI error: {e}")
+            pass
 
     # Option B: Gemini
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        combined = "\n".join([m["content"] for m in messages])
-        response = model.generate_content(combined)
-        return response.text
-    except Exception:
-        pass
+    if os.getenv("GOOGLE_API_KEY"):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            combined = "\n".join([m["content"] for m in messages])
+            response = model.generate_content(combined)
+            return response.text
+        except Exception as e:
+            print(f"Gemini error: {e}")
+            pass
 
     # Fallback: trả về message báo lỗi (không hallucinate)
     return "[SYNTHESIS ERROR] Không thể gọi LLM. Kiểm tra API key trong .env."
@@ -89,32 +93,133 @@ def _build_context(chunks: list, policy_result: dict) -> str:
     return "\n\n".join(parts)
 
 
+JUDGE_PROMPT = """Bạn là một AI Judge đánh giá chất lượng câu trả lời của hệ thống RAG.
+
+Cho:
+- Câu hỏi gốc (question)
+- Tài liệu tham khảo (context)
+- Câu trả lời cần đánh giá (answer)
+
+Hãy chấm điểm câu trả lời theo 3 tiêu chí, mỗi tiêu chí từ 0.0 đến 1.0:
+
+1. **faithfulness** (trung thực): Câu trả lời có hoàn toàn dựa vào context không? Có hallucinate thông tin ngoài context không?
+   - 1.0 = hoàn toàn dựa vào context, không hallucinate
+   - 0.5 = pha trộn context + kiến thức ngoài
+   - 0.0 = hoàn toàn bịa đặt, không liên quan context
+
+2. **relevance** (liên quan): Câu trả lời có trả lời đúng câu hỏi không?
+   - 1.0 = trả lời trực tiếp và đầy đủ
+   - 0.5 = trả lời một phần
+   - 0.0 = lạc đề hoàn toàn
+
+3. **completeness** (đầy đủ): Tất cả thông tin quan trọng từ context có được đề cập không?
+   - 1.0 = đầy đủ, không bỏ sót thông tin trọng yếu
+   - 0.5 = thiếu một số thông tin
+   - 0.0 = bỏ sót hầu hết thông tin quan trọng
+
+Trả lời CHÍNH XÁC theo định dạng JSON (không thêm markdown, không giải thích):
+{"faithfulness": <float>, "relevance": <float>, "completeness": <float>, "reasoning": "<1 câu giải thích ngắn>"}"""
+
+
 def _estimate_confidence(chunks: list, answer: str, policy_result: dict) -> float:
     """
-    Ước tính confidence dựa vào:
-    - Số lượng và quality của chunks
-    - Có exceptions không
-    - Answer có abstain không
+    Ước tính confidence bằng LLM-as-Judge.
 
-    TODO Sprint 2: Có thể dùng LLM-as-Judge để tính confidence chính xác hơn.
+    LLM đánh giá 3 chiều:
+      - faithfulness  (trọng số 0.5): câu trả lời có grounded vào context không?
+      - relevance     (trọng số 0.3): có trả lời đúng câu hỏi không?
+      - completeness  (trọng số 0.2): có đầy đủ thông tin không?
+
+    Fallback về rule-based scoring nếu LLM không khả dụng.
+
+    Returns:
+        float: confidence score [0.1, 0.95]
     """
+    import json as _json
+
+    # ── rule-based fallback (dùng khi LLM không trả lời được) ──
+    def _rule_based() -> float:
+        if not chunks:
+            return 0.1
+        if "Không đủ thông tin" in answer or "không có trong tài liệu" in answer.lower():
+            return 0.3
+        avg_score = sum(c.get("score", 0) for c in chunks) / len(chunks) if chunks else 0
+        penalty = 0.05 * len(policy_result.get("exceptions_found", []))
+        return round(max(0.1, min(0.95, avg_score - penalty)), 2)
+
     if not chunks:
-        return 0.1  # Không có evidence → low confidence
+        return 0.1
 
-    if "Không đủ thông tin" in answer or "không có trong tài liệu" in answer.lower():
-        return 0.3  # Abstain → moderate-low
+    # ── Build judge prompt ──
+    context_snippet = "\n".join(
+        f"[{i+1}] ({c.get('source','?')}) {c.get('text','')[:300]}"
+        for i, c in enumerate(chunks[:5])
+    )
+    judge_messages = [
+        {"role": "system", "content": JUDGE_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"CONTEXT:\n{context_snippet}\n\n"
+                f"ANSWER:\n{answer}"
+            ),
+        },
+    ]
 
-    # Weighted average của chunk scores
-    if chunks:
-        avg_score = sum(c.get("score", 0) for c in chunks) / len(chunks)
-    else:
-        avg_score = 0
+    # ── Call LLM ──
+    raw_response = None
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=10)
+            resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=judge_messages,
+                temperature=0.0,
+                max_tokens=200,
+                response_format={"type": "json_object"},
+            )
+            raw_response = resp.choices[0].message.content
+        except Exception as e:
+            print(f"  [LLM-Judge] OpenAI error: {e}")
 
-    # Penalty nếu có exceptions (phức tạp hơn)
-    exception_penalty = 0.05 * len(policy_result.get("exceptions_found", []))
+    if raw_response is None and os.getenv("GOOGLE_API_KEY"):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            combined = "\n".join(m["content"] for m in judge_messages)
+            resp = model.generate_content(combined)
+            raw_response = resp.text
+        except Exception as e:
+            print(f"  [LLM-Judge] Gemini error: {e}")
 
-    confidence = min(0.95, avg_score - exception_penalty)
-    return round(max(0.1, confidence), 2)
+    # ── Parse & compute weighted score ──
+    if raw_response:
+        try:
+            # Strip possible markdown fences
+            clean = raw_response.strip().strip("```json").strip("```").strip()
+            scores = _json.loads(clean)
+            faithfulness  = float(scores.get("faithfulness",  0.5))
+            relevance     = float(scores.get("relevance",     0.5))
+            completeness  = float(scores.get("completeness",  0.5))
+            reasoning     = scores.get("reasoning", "")
+
+            weighted = (
+                0.5 * faithfulness
+                + 0.3 * relevance
+                + 0.2 * completeness
+            )
+            confidence = round(max(0.1, min(0.95, weighted)), 2)
+            print(
+                f"  [LLM-Judge] faith={faithfulness:.2f} rel={relevance:.2f} "
+                f"comp={completeness:.2f} → confidence={confidence} | {reasoning}"
+            )
+            return confidence
+        except Exception as e:
+            print(f"  [LLM-Judge] parse error: {e} — falling back to rule-based")
+
+    return _rule_based()
 
 
 def synthesize(task: str, chunks: list, policy_result: dict) -> dict:

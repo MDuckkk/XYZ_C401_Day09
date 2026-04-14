@@ -65,6 +65,8 @@ def _call_mcp_tool(tool_name: str, tool_input: dict) -> dict:
             else:
                 result = response_data
         else:
+            if os.path.dirname(os.path.dirname(__file__)) not in sys.path:
+                sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
             from mcp_server import dispatch_tool
             result = dispatch_tool(tool_name, tool_input)
 
@@ -153,18 +155,35 @@ def analyze_policy(task: str, chunks: list) -> dict:
     if "31/01" in task_lower or "30/01" in task_lower or "trước 01/02" in task_lower:
         policy_version_note = "Đơn hàng đặt trước 01/02/2026 áp dụng chính sách v3 (không có trong tài liệu hiện tại)."
 
-    # TODO Sprint 2: Gọi LLM để phân tích phức tạp hơn
-    # Ví dụ:
-    from openai import OpenAI
-    client = OpenAI()
-    response = client.chat.completions.create(
-         model="gpt-4o-mini",
-         messages=[
-             {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
-             {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-         ]
-     )
-    analysis = response.choices[0].message.content
+    # Run LLM for complex analysis
+    analysis = "Phân tích tự động (rule-based)."
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            response = client.chat.completions.create(
+                 model="gpt-4o-mini",
+                 messages=[
+                     {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
+                     {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c.get('text', '') for c in chunks])}
+                 ],
+                 timeout=10,
+             )
+            analysis = response.choices[0].message.content
+        except Exception as e:
+            analysis += f" (OpenAI error: {e})"
+    elif os.getenv("GOOGLE_API_KEY"):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            combined = f"Task: {task}\n\nContext:\n" + "\n".join([c.get('text', '') for c in chunks])
+            response = model.generate_content("Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions. \n" + combined)
+            analysis = response.text
+        except Exception as e:
+            analysis += f" (Gemini error: {e})"
+    else:
+        analysis += " (Bỏ qua LLM vì không cấu hình API key)"
 
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
