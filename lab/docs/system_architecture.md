@@ -13,50 +13,50 @@
 **Pattern đã chọn:** Supervisor-Worker  
 **Lý do chọn pattern này (thay vì single agent):**
 
-- Tách biệt trách nhiệm: Supervisor chỉ routing, workers xử lý domain logic
-- Dễ debug: Test từng worker độc lập, trace rõ ràng qua history log
-- Mở rộng dễ: Thêm worker mới không ảnh hưởng code cũ
-- HITL support: Supervisor có thể pause cho human review khi risk_high=True
-- MCP integration: Policy worker gọi external tools qua MCP protocol
+Supervisor-Worker cho phép tách biệt logic routing (supervisor) khỏi logic xử lý (workers), giúp dễ debug, dễ mở rộng và có trace rõ ràng cho mỗi bước quyết định. So với single agent ở Day 08 — nơi toàn bộ retrieval, reasoning và generation nằm trong một prompt duy nhất — kiến trúc multi-agent cho phép test từng worker độc lập, thêm capability mới qua MCP mà không cần sửa core pipeline, và có routing visibility qua `route_reason` trong mỗi trace.
 
 ---
 
 ## 2. Sơ đồ Pipeline
 
-> Vẽ sơ đồ pipeline dưới dạng text, Mermaid diagram, hoặc ASCII art.
-> Yêu cầu tối thiểu: thể hiện rõ luồng từ input → supervisor → workers → output.
-
-**Ví dụ (ASCII art):**
 ```
-User Request
-     │
-     ▼
-┌──────────────┐
-│  Supervisor  │  ← route_reason, risk_high, needs_tool
-└──────┬───────┘
-       │
-   [route_decision]
-       │
-  ┌────┴────────────────────┐
-  │                         │
-  ▼                         ▼
-Retrieval Worker     Policy Tool Worker
-  (evidence)           (policy check + MCP)
-  │                         │
-  └─────────┬───────────────┘
-            │
-            ▼
-      Synthesis Worker
-        (answer + cite)
-            │
-            ▼
-         Output
-```
-
-**Sơ đồ thực tế của nhóm:**
-
-```
-[NHÓM ĐIỀN VÀO ĐÂY]
+                        User Request
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │    Supervisor    │  ← phân tích task keywords
+                    │   (graph.py)     │  ← set: route, route_reason,
+                    └────────┬─────────┘     risk_high, needs_tool
+                             │
+                      [route_decision]
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+  ┌───────────────┐  ┌──────────────────┐  ┌──────────────┐
+  │   Retrieval   │  │  Policy Tool     │  │ Human Review │
+  │    Worker     │  │    Worker        │  │   (HITL)     │
+  │ (ChromaDB +   │  │ (MCP tools +    │  │              │
+  │  OpenAI embed)│  │  retrieval)      │  └──────┬───────┘
+  └───────┬───────┘  └────────┬─────────┘         │
+          │                   │          auto-approve → retrieval
+          │                   │                   │
+          └───────────────────┴───────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Synthesis Worker │  ← LLM generate answer
+                    │ (OpenAI + judge) │  ← cite sources
+                    └────────┬─────────┘  ← confidence scoring
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │     Output       │
+                    │  final_answer    │
+                    │  sources         │
+                    │  confidence      │
+                    │  trace/history   │
+                    └──────────────────┘
 ```
 
 ---
@@ -67,46 +67,45 @@ Retrieval Worker     Policy Tool Worker
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Input** | ___________________ |
-| **Output** | supervisor_route, route_reason, risk_high, needs_tool |
-| **Routing logic** | ___________________ |
-| **HITL condition** | ___________________ |
+| **Nhiệm vụ** | Phân tích câu hỏi đầu vào, quyết định route sang worker phù hợp, đánh giá mức độ rủi ro |
+| **Input** | `task` — câu hỏi từ user |
+| **Output** | `supervisor_route`, `route_reason`, `risk_high`, `needs_tool` |
+| **Routing logic** | Keyword matching: policy keywords → `policy_tool_worker`; SLA/ticket keywords → `retrieval_worker`; error codes/unclear → `human_review`; default → `retrieval_worker` |
+| **HITL condition** | Khi task chứa mã lỗi không xác định (e.g. `ERR-xxx`) hoặc ngữ cảnh không rõ ràng; hoặc khi có từ khóa `emergency`/`khẩn cấp` kèm policy request |
 
 ### Retrieval Worker (`workers/retrieval.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **Embedding model** | ___________________ |
-| **Top-k** | ___________________ |
-| **Stateless?** | Yes / No |
+| **Nhiệm vụ** | Embed câu hỏi và truy vấn ChromaDB để lấy top-k chunks liên quan làm evidence |
+| **Embedding model** | OpenAI `text-embedding-3-small` (1536 dimensions) |
+| **Top-k** | 3 (mặc định, có thể override qua `retrieval_top_k` trong state) |
+| **Stateless?** | Yes — mỗi lần gọi đều tạo embedding mới và query ChromaDB độc lập |
 
 ### Policy Tool Worker (`workers/policy_tool.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **Nhiệm vụ** | ___________________ |
-| **MCP tools gọi** | ___________________ |
-| **Exception cases xử lý** | ___________________ |
+| **Nhiệm vụ** | Xử lý câu hỏi liên quan đến chính sách, quyền truy cập — gọi MCP tools để kiểm tra policy và lấy thêm context |
+| **MCP tools gọi** | `search_kb` (tìm kiếm knowledge base), `get_ticket_info`, `check_access_permission` |
+| **Exception cases xử lý** | Flash sale refund, license key (sản phẩm kỹ thuật số), emergency access Level 3 cho contractor, quyền truy cập tạm thời ngoài giờ |
 
 ### Synthesis Worker (`workers/synthesis.py`)
 
 | Thuộc tính | Mô tả |
 |-----------|-------|
-| **LLM model** | ___________________ |
-| **Temperature** | ___________________ |
-| **Grounding strategy** | ___________________ |
-| **Abstain condition** | ___________________ |
+| **LLM model** | OpenAI (model cấu hình trong code, sử dụng `max_completion_tokens`) |
+| **Temperature** | Mặc định (1.0) — model o-series không hỗ trợ custom temperature |
+| **Grounding strategy** | Chỉ trả lời dựa trên retrieved chunks; cite nguồn cụ thể; LLM-Judge đánh giá faithfulness, relevance, completeness |
+| **Abstain condition** | Khi không có chunks liên quan hoặc confidence score < ngưỡng; LLM-Judge cho điểm thấp → confidence giảm |
 
 ### MCP Server (`mcp_server.py`)
 
 | Tool | Input | Output |
 |------|-------|--------|
-| search_kb | query, top_k | chunks, sources |
-| get_ticket_info | ticket_id | ticket details |
-| check_access_permission | access_level, requester_role | can_grant, approvers |
-| ___________________ | ___________________ | ___________________ |
+| `search_kb` | `query: str`, `top_k: int` | `chunks: list`, `sources: list` |
+| `get_ticket_info` | `ticket_id: str` | Ticket details (priority, status, SLA) |
+| `check_access_permission` | `access_level: str`, `requester_role: str` | `can_grant: bool`, `approvers: list` |
 
 ---
 
@@ -116,15 +115,24 @@ Retrieval Worker     Policy Tool Worker
 
 | Field | Type | Mô tả | Ai đọc/ghi |
 |-------|------|-------|-----------|
-| task | str | Câu hỏi đầu vào | supervisor đọc |
-| supervisor_route | str | Worker được chọn | supervisor ghi |
-| route_reason | str | Lý do route | supervisor ghi |
-| retrieved_chunks | list | Evidence từ retrieval | retrieval ghi, synthesis đọc |
-| policy_result | dict | Kết quả kiểm tra policy | policy_tool ghi, synthesis đọc |
-| mcp_tools_used | list | Tool calls đã thực hiện | policy_tool ghi |
-| final_answer | str | Câu trả lời cuối | synthesis ghi |
-| confidence | float | Mức tin cậy | synthesis ghi |
-| ___________________ | ___________________ | ___________________ | ___________________ |
+| `task` | `str` | Câu hỏi đầu vào từ user | supervisor đọc |
+| `supervisor_route` | `str` | Worker được chọn (`retrieval_worker` / `policy_tool_worker` / `human_review`) | supervisor ghi, graph đọc |
+| `route_reason` | `str` | Lý do chọn route (e.g. "task contains policy keyword") | supervisor ghi, trace đọc |
+| `risk_high` | `bool` | True nếu cần HITL hoặc human review | supervisor ghi, graph đọc |
+| `needs_tool` | `bool` | True nếu cần gọi MCP tool | supervisor ghi, policy_tool đọc |
+| `hitl_triggered` | `bool` | True nếu đã pause cho human review | human_review ghi, trace đọc |
+| `retrieved_chunks` | `list` | Danh sách chunks evidence từ ChromaDB | retrieval ghi, synthesis đọc |
+| `retrieved_sources` | `list` | Danh sách nguồn tài liệu đã dùng | retrieval ghi, synthesis đọc |
+| `policy_result` | `dict` | Kết quả kiểm tra policy từ MCP tools | policy_tool ghi, synthesis đọc |
+| `mcp_tools_used` | `list` | Danh sách MCP tool calls đã thực hiện | policy_tool ghi, trace đọc |
+| `final_answer` | `str` | Câu trả lời tổng hợp cuối cùng | synthesis ghi |
+| `sources` | `list` | Sources được cite trong answer | synthesis ghi |
+| `confidence` | `float` | Mức độ tin cậy (0.0–1.0), tính từ LLM-Judge scores | synthesis ghi |
+| `history` | `list` | Lịch sử các bước đã qua (dạng log messages) | mọi node ghi |
+| `workers_called` | `list` | Danh sách workers đã được gọi theo thứ tự | mọi worker ghi |
+| `latency_ms` | `int \| None` | Tổng thời gian xử lý pipeline (ms) | graph ghi |
+| `run_id` | `str` | ID duy nhất của run (format: `run_YYYYMMDD_HHMMSS`) | graph ghi |
+| `worker_io_logs` | `list` | Log chi tiết input/output của từng worker | mọi worker ghi, trace đọc |
 
 ---
 
@@ -132,21 +140,32 @@ Retrieval Worker     Policy Tool Worker
 
 | Tiêu chí | Single Agent (Day 08) | Supervisor-Worker (Day 09) |
 |----------|----------------------|--------------------------|
-| Debug khi sai | Khó — không rõ lỗi ở đâu | Dễ hơn — test từng worker độc lập |
-| Thêm capability mới | Phải sửa toàn prompt | Thêm worker/MCP tool riêng |
-| Routing visibility | Không có | Có route_reason trong trace |
-| ___________________ | ___________________ | ___________________ |
+| Debug khi sai | Khó — không rõ lỗi ở retrieval hay generation | Dễ hơn — test từng worker độc lập (`python -m workers.retrieval`) |
+| Thêm capability mới | Phải sửa toàn bộ prompt và logic | Thêm worker hoặc MCP tool riêng, không sửa core |
+| Routing visibility | Không có — mọi câu đều đi cùng một luồng | Có `route_reason` trong trace, biết tại sao chọn worker nào |
+| Xử lý policy phức tạp | Dồn hết vào 1 prompt, dễ hallucinate | Policy tool worker riêng + MCP tools chuyên biệt |
+| HITL (Human-in-the-loop) | Không hỗ trợ | Có `human_review` node, trigger khi `risk_high=True` |
+| Latency | Nhanh hơn (~2.2s/câu) | Chậm hơn (~14.3s/câu) do nhiều bước + LLM-Judge |
+| Confidence scoring | Không có hoặc đơn giản | LLM-Judge đánh giá faithfulness, relevance, completeness |
+| Trace & observability | Minimal | Full trace JSON cho mỗi run, có worker_io_logs |
 
-**Nhóm điền thêm quan sát từ thực tế lab:**
+**Quan sát từ thực tế lab:**
 
-_________________
+- Avg confidence Day 09: **0.862** trên 15 câu grading, cho thấy hệ thống trả lời grounded tốt.
+- Routing distribution: 76% retrieval, 23% policy_tool — supervisor phân luồng hợp lý theo nội dung câu hỏi.
+- Top sources sử dụng nhiều nhất: `it/access-control-sop.md` (11 lần), `support/sla-p1-2026.pdf` (9 lần) — phù hợp với bộ câu hỏi.
+- HITL chỉ trigger 1/30 lần (3%) — đúng với thiết kế chỉ dùng cho trường hợp mã lỗi không xác định.
 
 ---
 
 ## 6. Giới hạn và điểm cần cải tiến
 
-> Nhóm mô tả những điểm hạn chế của kiến trúc hiện tại.
+1. **Latency cao (~14s/câu):** Pipeline qua nhiều bước (supervisor → worker → synthesis → LLM-Judge), mỗi bước gọi OpenAI API. Cải tiến: batch embedding, cache kết quả, hoặc dùng model nhẹ hơn cho judge.
 
-1. ___________________
-2. ___________________
-3. ___________________
+2. **Routing dựa trên keyword matching đơn giản:** Supervisor hiện tại dùng keyword matching cứng, dễ miss các câu hỏi không chứa keyword mong đợi. Cải tiến: dùng LLM classifier hoặc intent detection model cho routing.
+
+3. **Chưa hỗ trợ multi-hop reasoning thực sự:** Khi câu hỏi cần thông tin từ nhiều tài liệu (ví dụ: SLA + access control), pipeline chỉ query một lần với top-k=3. Cải tiến: thêm re-ranking step hoặc iterative retrieval khi confidence thấp.
+
+4. **HITL chỉ là placeholder (auto-approve):** Human review node chỉ in warning rồi tự approve, chưa có cơ chế dừng pipeline thực sự chờ human input. Cải tiến: tích hợp với messaging system hoặc UI để human review thật.
+
+5. **Embedding model mismatch tiềm ẩn:** Nếu retrieval.py fallback sang sentence-transformers (384 dims) thay vì OpenAI (1536 dims), kết quả sẽ sai. Cải tiến: enforce cùng một embedding model ở cả index và query, có validation check khi khởi tạo.

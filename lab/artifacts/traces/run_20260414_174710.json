@@ -1,0 +1,108 @@
+{
+  "task": "Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+  "route_reason": "single retrieval agent mode",
+  "risk_high": false,
+  "needs_tool": false,
+  "hitl_triggered": false,
+  "retrieved_chunks": [
+    {
+      "text": "- Hoàn tiền qua phương thức thanh toán gốc: áp dụng trong 100% trường hợp đủ điều kiện.\n- Hoàn tiền qua credit nội bộ (store credit): khách hàng có thể chọn nhận store credit thay thế với giá trị 110% so với số tiền hoàn.",
+      "source": "policy/refund-v4.pdf",
+      "score": 0.6564,
+      "metadata": {
+        "access": "internal",
+        "chunk_index": 4,
+        "chunk_chars": 221,
+        "department": "CS",
+        "effective_date": "2026-02-01",
+        "source": "policy/refund-v4.pdf",
+        "section": "Điều 5: Hình thức hoàn tiền"
+      }
+    },
+    {
+      "text": "Hoàn tiền — Điều kiện áp dụng:\nYêu cầu được gửi trong vòng 7 ngày kể từ thời điểm xác nhận đơn hàng.\n\nNgoại lệ không được hoàn tiền:\n- Sản phẩm thuộc danh mục hàng kỹ thuật số (license key, subscription).\n- Đơn hàng đã áp dụng mã giảm giá đặc biệt theo chương trình khuyến mãi Flash Sale.\n- Sản phẩm đã được kích hoạt hoặc đăng ký tài khoản.",
+      "source": "policy/refund-v4.pdf",
+      "score": 0.4356,
+      "metadata": {
+        "section": "Điều 3: Điều kiện áp dụng và ngoại lệ",
+        "effective_date": "2026-02-01",
+        "source": "policy/refund-v4.pdf",
+        "chunk_chars": 341,
+        "chunk_index": 2,
+        "department": "CS",
+        "access": "internal"
+      }
+    },
+    {
+      "text": "Chính sách này áp dụng cho tất cả các đơn hàng được đặt trên hệ thống nội bộ kể từ ngày 01/02/2026.\nCác đơn hàng đặt trước ngày có hiệu lực sẽ áp dụng theo chính sách hoàn tiền phiên bản 3.",
+      "source": "policy/refund-v4.pdf",
+      "score": 0.3874,
+      "metadata": {
+        "chunk_index": 0,
+        "source": "policy/refund-v4.pdf",
+        "effective_date": "2026-02-01",
+        "section": "Điều 1: Phạm vi áp dụng",
+        "department": "CS",
+        "chunk_chars": 189,
+        "access": "internal"
+      }
+    }
+  ],
+  "retrieved_sources": [
+    "policy/refund-v4.pdf"
+  ],
+  "policy_result": {},
+  "mcp_tools_used": [],
+  "final_answer": "Store credit khi hoàn tiền có giá trị 110% so với số tiền gốc. Khách hàng có thể chọn nhận store credit thay thế trong trường hợp đủ điều kiện hoàn tiền [1].",
+  "sources": [
+    "policy/refund-v4.pdf"
+  ],
+  "confidence": 0.9,
+  "history": [
+    "[supervisor] received task: Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+    "[supervisor] route=retrieval_worker reason=single retrieval agent mode",
+    "[retrieval_worker] retrieved 3 chunks from ['policy/refund-v4.pdf']",
+    "[synthesis_worker] answer generated, confidence=0.9, sources=['policy/refund-v4.pdf']",
+    "[graph] completed in 4738ms"
+  ],
+  "workers_called": [
+    "retrieval_worker",
+    "synthesis_worker"
+  ],
+  "supervisor_route": "retrieval_worker",
+  "latency_ms": 4738,
+  "run_id": "run_20260414_174710",
+  "worker_io_logs": [
+    {
+      "worker": "retrieval_worker",
+      "input": {
+        "task": "Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+        "top_k": 3
+      },
+      "output": {
+        "chunks_count": 3,
+        "sources": [
+          "policy/refund-v4.pdf"
+        ]
+      },
+      "error": null
+    },
+    {
+      "worker": "synthesis_worker",
+      "input": {
+        "task": "Store credit khi hoàn tiền có giá trị bao nhiêu so với tiền gốc?",
+        "chunks_count": 3,
+        "has_policy": false
+      },
+      "output": {
+        "answer_length": 157,
+        "sources": [
+          "policy/refund-v4.pdf"
+        ],
+        "confidence": 0.9
+      },
+      "error": null
+    }
+  ],
+  "question_id": "q10"
+}
