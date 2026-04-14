@@ -18,6 +18,8 @@ Gọi độc lập để test:
 
 import os
 import sys
+import json
+from urllib import request, error
 from typing import Optional
 
 WORKER_NAME = "policy_tool_worker"
@@ -38,14 +40,48 @@ def _call_mcp_tool(tool_name: str, tool_input: dict) -> dict:
     from datetime import datetime
 
     try:
-        # TODO Sprint 3: Thay bằng real MCP client nếu dùng HTTP server
-        from mcp_server import dispatch_tool
-        result = dispatch_tool(tool_name, tool_input)
+        mcp_server_url = os.getenv("MCP_SERVER_URL", "").strip()
+
+        if mcp_server_url:
+            endpoint = mcp_server_url.rstrip("/")
+            if not endpoint.endswith("/tools/call"):
+                endpoint = f"{endpoint}/tools/call"
+            payload = json.dumps({
+                "tool": tool_name,
+                "input": tool_input,
+            }).encode("utf-8")
+            req = request.Request(
+                endpoint,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            timeout = float(os.getenv("MCP_HTTP_TIMEOUT", "5"))
+            with request.urlopen(req, timeout=timeout) as resp:
+                response_data = json.loads(resp.read().decode("utf-8"))
+
+            if isinstance(response_data, dict) and "output" in response_data:
+                result = response_data["output"]
+            else:
+                result = response_data
+        else:
+            from mcp_server import dispatch_tool
+            result = dispatch_tool(tool_name, tool_input)
+
         return {
             "tool": tool_name,
             "input": tool_input,
             "output": result,
             "error": None,
+            "timestamp": datetime.now().isoformat(),
+        }
+    except error.HTTPError as e:
+        reason = e.read().decode("utf-8", errors="replace")
+        return {
+            "tool": tool_name,
+            "input": tool_input,
+            "output": None,
+            "error": {"code": "MCP_HTTP_ERROR", "reason": f"{e.code}: {reason}"},
             "timestamp": datetime.now().isoformat(),
         }
     except Exception as e:
@@ -119,16 +155,16 @@ def analyze_policy(task: str, chunks: list) -> dict:
 
     # TODO Sprint 2: Gọi LLM để phân tích phức tạp hơn
     # Ví dụ:
-    # from openai import OpenAI
-    # client = OpenAI()
-    # response = client.chat.completions.create(
-    #     model="gpt-4o-mini",
-    #     messages=[
-    #         {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
-    #         {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
-    #     ]
-    # )
-    # analysis = response.choices[0].message.content
+    from openai import OpenAI
+    client = OpenAI()
+    response = client.chat.completions.create(
+         model="gpt-4o-mini",
+         messages=[
+             {"role": "system", "content": "Bạn là policy analyst. Dựa vào context, xác định policy áp dụng và các exceptions."},
+             {"role": "user", "content": f"Task: {task}\n\nContext:\n" + "\n".join([c['text'] for c in chunks])}
+         ]
+     )
+    analysis = response.choices[0].message.content
 
     sources = list({c.get("source", "unknown") for c in chunks if c})
 
@@ -138,7 +174,7 @@ def analyze_policy(task: str, chunks: list) -> dict:
         "exceptions_found": exceptions_found,
         "source": sources,
         "policy_version_note": policy_version_note,
-        "explanation": "Analyzed via rule-based policy check. TODO: upgrade to LLM-based analysis.",
+        "explanation": analysis,
     }
 
 

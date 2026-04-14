@@ -29,7 +29,8 @@ Quy tắc nghiêm ngặt:
 4. Trả lời súc tích, có cấu trúc. Không dài dòng.
 5. Nếu có exceptions/ngoại lệ → nêu rõ ràng trước khi kết luận.
 """
-
+from dotenv import load_dotenv
+load_dotenv()
 
 def _call_llm(messages: list) -> str:
     """
